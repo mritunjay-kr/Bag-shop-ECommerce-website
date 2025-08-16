@@ -1,0 +1,131 @@
+<%- include('./partials/header') %>
+
+<div class="w-full flex px-20 py-20 gap-10 items-start">
+
+    <!-- LEFT SIDE (Products Horizontal Scroll with Arrows) -->
+    <div class="relative w-[70%]">
+        <!-- Scrollable Container -->
+        <div id="cartScroll" class="overflow-x-auto flex gap-6 h-fit scroll-smooth pb-4 no-scrollbar">
+            <% user.cart.forEach(function(item, index){ %>
+                <div class="min-w-[250px] rounded-md overflow-hidden shadow-lg" data-id="<%= item._id %>">
+                    
+                    <!-- Product Image -->
+                    <div class="w-full flex justify-center items-center h-52 bg-[<%= item.bgcolor %>]">
+                        <img class="h-[10rem]" src="data:image/jpeg;base64, <%= item.image.toString('base64') %>" alt="">
+                    </div>
+
+                    <!-- Product Info + Quantity -->
+                    <div class="w-full flex justify-between px-4 py-3 bg-[<%= item.panelcolor %>]">
+                        <h3 class="text-lg font-semibold"><%= item.name %></h3>
+                        <div class="flex items-center gap-2">
+                            <button data-action="increase" data-id="<%= item._id %>" class="w-6 h-6 bg-white flex rounded-full items-center justify-center ri-add-line"></button>
+                            
+                            <div class="px-2 py-1 rounded-md bg-white text-black quantity"><%= item.quantity || 1 %></div>
+                            
+                            <button data-action="decrease" data-id="<%= item._id %>" class="w-6 h-6 bg-white flex rounded-full items-center justify-center ri-subtract-line"></button>
+                        </div>
+                    </div>
+
+                    <!-- Product Total -->
+                    <div class="flex text-white items-center justify-between px-4 py-2 bg-[<%= item.textcolor %>]">
+                        <h4 class="text-sm">Net Total</h4>
+                        <h2 class="text-sm total-price">₹ <%= (item.price - (item.discount || 0)) * (item.quantity || 1) %></h2>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+
+        <!-- Left / Right Buttons -->
+        <button id="scrollLeft" class="absolute top-1/2 left-0 -translate-y-1/2 bg-black/20 text-white px-3 py-6 rounded-r-md hover:bg-black/40">
+            &#10094;
+        </button>
+        <button id="scrollRight" class="absolute top-1/2 right-0 -translate-y-1/2 bg-black/20 text-white px-3 py-6 rounded-l-md hover:bg-black/40">
+            &#10095;
+        </button>
+    </div>
+
+    <!-- RIGHT SIDE (Cart Summary - fixed) -->
+    <div class="w-[30%] sticky top-20 h-fit shadow-lg p-8 rounded-md" id="cartSummary">
+        <h3 class="text-xl font-bold">Price Breakdown</h3>
+        <div class="px-5 mt-5">
+            <div class="flex mt-2">
+                <h4 class="w-1/3">Total MRP</h4>
+                <h4 id="totalMRP">
+                    ₹ <%= user.cart.reduce((acc, item) => acc + (item.price * (item.quantity || 1)), 0) %>
+                </h4>
+            </div>
+            <div class="flex mt-2">
+                <h4 class="w-1/3">Discount</h4>
+                <h4 id="totalDiscount">
+                    ₹ <%= user.cart.reduce((acc, item) => acc + (Number(item.discount) * (item.quantity || 1)), 0) %>
+                </h4>
+            </div>
+            <div class="flex mt-2">
+                <h4 class="w-1/3">Platform Fee</h4>
+                <h4>₹ 20</h4>
+            </div>
+            <div class="flex mt-2">
+                <h4 class="w-1/3">Shipping Fee</h4>
+                <h4>FREE</h4>
+            </div>
+        </div>
+
+        <div class="w-full h-[1px] bg-black mt-6"></div>
+
+        <div class="flex mt-5">
+            <h3 class="w-1/3 text-lg">Total</h3>
+            <h3 class="font-semibold text-lg text-green-600" id="grandTotal">
+                ₹ <%= user.cart.reduce((acc, item) => acc + ((item.price - (item.discount || 0)) * (item.quantity || 1)), 20) %>
+            </h3>
+        </div>
+
+        <form action="/checkout" method="POST" class="mt-5">
+            <button type="submit" class="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                Proceed to Checkout
+            </button>
+        </form>
+    </div>
+</div>
+
+<%- include('./partials/footer') %>
+
+<script>
+    // Scroll buttons
+    const cartScroll = document.getElementById("cartScroll");
+    document.getElementById("scrollLeft").addEventListener("click", () => {
+        cartScroll.scrollBy({ left: -250, behavior: "smooth" });
+    });
+    document.getElementById("scrollRight").addEventListener("click", () => {
+        cartScroll.scrollBy({ left: 250, behavior: "smooth" });
+    });
+
+    // Cart update via AJAX
+    document.querySelectorAll("[data-action]").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const action = btn.getAttribute("data-action");
+            const id = btn.getAttribute("data-id");
+
+            const res = await fetch(`/cart/${action}/${id}`, { method: "POST" });
+            const data = await res.json();
+
+            if(data.success){
+                // Update quantity & price directly
+                const card = document.querySelector(`[data-id='${id}']`);
+                card.querySelector(".quantity").innerText = data.quantity;
+                card.querySelector(".total-price").innerText = `₹ ${data.total}`;
+
+                // Update summary
+                document.getElementById("totalMRP").innerText = `₹ ${data.summary.totalMRP}`;
+                document.getElementById("totalDiscount").innerText = `₹ ${data.summary.totalDiscount}`;
+                document.getElementById("grandTotal").innerText = `₹ ${data.summary.grandTotal}`;
+            }
+        });
+    });
+</script>
+
+<style>
+    /* Hide scrollbar */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
